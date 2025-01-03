@@ -2,6 +2,12 @@ import { Sequelize } from "sequelize";
 import database from "../utils/database.js";
 
 const userSchema = database.define('User', {
+    id: {
+        type: Sequelize.INTEGER,
+        autoIncrement: true,
+        allowNull: false,
+        primaryKey: true
+    },
     username: {
         type: Sequelize.STRING,
         allowNull: false
@@ -20,7 +26,7 @@ const userSchema = database.define('User', {
     },
     isRestricted: {
         type: Sequelize.BOOLEAN,
-        allowNull: false
+        allowNull: false,
     }
 })
 export default userSchema;
