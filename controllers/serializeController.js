@@ -248,4 +248,11 @@ const getAllSerialize = async (req, res) => {
     }
 };
 
+const getAllSerializeByUserId = async (req, res) => { };
+
+const downloadTextReport = async (req, res) => { };
+
+
+
+
 export { uploadAndGenerateData, getAllSerialize, upload };
