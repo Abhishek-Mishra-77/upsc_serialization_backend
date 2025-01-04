@@ -178,7 +178,7 @@ const uploadAndGenerateData = async (req, res) => {
             reportContent += `Duplicate Litho Code: NONE (0)\n\n`;
         }
 
-        // **Not in Range Check**
+        // Not in Range Check
         const outOfRangeData = jsonData.filter(row => {
             const lithoValue = Number(row["LITHO"]);
             return lithoValue < minValue || lithoValue > maxValue;
@@ -192,6 +192,20 @@ const uploadAndGenerateData = async (req, res) => {
         } else {
             reportContent += `Not in Range: NONE\n\n`;
         }
+
+        // Extract cell values row-wise (excluding Serial No. and LITHO)
+        reportContent += `\nRow-wise Non-Empty Data:\nSerial No. Litho -> [[CellName: Value], [CellName: Value]]\n`;
+        jsonData.forEach(row => {
+            const serialNo = row["Serial No."];
+            const litho = row["LITHO"];
+            const nonEmptyCells = Object.entries(row)
+                .filter(([key, value]) => key !== "Serial No." && key !== "LITHO" && value && value.trim() !== '')
+                .map(([key, value]) => `[${key}: ${value}]`);
+
+            if (nonEmptyCells.length > 0) {
+                reportContent += `${serialNo} ${litho} -> [${nonEmptyCells.join(", ")}]\n`;
+            }
+        });
 
         // Save the report as a .txt file
         fs.writeFileSync(reportTextFile, reportContent);
@@ -211,7 +225,6 @@ const uploadAndGenerateData = async (req, res) => {
         return res.status(500).json({ message: "Failed to upload and process the CSV", error: error.message });
     }
 };
-
 
 
 // Fetch all serialized data
