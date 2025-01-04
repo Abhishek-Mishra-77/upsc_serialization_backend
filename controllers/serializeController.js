@@ -89,7 +89,6 @@ const uploadAndGenerateData = async (req, res) => {
         return res.status(404).json({ message: "User not found" });
     }
 
-
     const reportDir = path.join(rootDir, 'completedSerializedReport');
     ensureFolderExists(reportDir);
 
@@ -118,9 +117,9 @@ const uploadAndGenerateData = async (req, res) => {
 
         // Initialize the report content
         const now = moment().format('YYYY-MM-DD HH:mm:ss');
-        let reportContent = `File Name: ${file.filename}\nDate: ${now}\n\Total Number of Data: ${csvLength}\nUser: ${user.email}\n\n`;
+        let reportContent = `File Name: ${file.filename}\nDate: ${now}\nTotal Number of Data: ${csvLength}\nUser: ${user.email}\n\n`;
 
-        const [minValue, maxValue] = file.filename.split('-');
+        const [minValue, maxValue] = file.filename.split('-').map(Number);
 
         console.log(minValue, maxValue);
 
@@ -133,7 +132,7 @@ const uploadAndGenerateData = async (req, res) => {
 
             const lithoCode = jsonData.map(row => Number(row["LITHO"]));
             const serialNumbers = jsonData.map(row => Number(row["Serial No."]));
-            const expectedSerials = Array.from({ length: 5000 }, (_, index) => index + Number(minValue));
+            const expectedSerials = Array.from({ length: 5000 }, (_, index) => index + minValue);
 
             let missingLithos = [];
             let missingSerials = [];
@@ -179,6 +178,21 @@ const uploadAndGenerateData = async (req, res) => {
             reportContent += `Duplicate Litho Code: NONE (0)\n\n`;
         }
 
+        // **Not in Range Check**
+        const outOfRangeData = jsonData.filter(row => {
+            const lithoValue = Number(row["LITHO"]);
+            return lithoValue < minValue || lithoValue > maxValue;
+        });
+
+        if (outOfRangeData.length > 0) {
+            reportContent += `Not in Range: YES\nSerial No, LITHO\n`;
+            outOfRangeData.forEach(row => {
+                reportContent += `${row["Serial No."]} \t${row["LITHO"]}\n`;
+            });
+        } else {
+            reportContent += `Not in Range: NONE\n\n`;
+        }
+
         // Save the report as a .txt file
         fs.writeFileSync(reportTextFile, reportContent);
 
@@ -197,6 +211,7 @@ const uploadAndGenerateData = async (req, res) => {
         return res.status(500).json({ message: "Failed to upload and process the CSV", error: error.message });
     }
 };
+
 
 
 // Fetch all serialized data
