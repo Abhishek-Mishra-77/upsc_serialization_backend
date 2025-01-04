@@ -83,6 +83,15 @@ const uploadAndGenerateData = async (req, res) => {
         return res.status(400).json({ message: "No file uploaded" });
     }
 
+    let fileName1 = String(file.filename).trim();
+
+    const fileNamePattern = /^\d+(-\d+)+(-\d+)*\.csv$/;
+
+    // Check if the file name matches the pattern
+    if (!fileNamePattern.test(fileName1)) {
+        return res.status(400).json({ message: "Invalid file name format. The file name should be in the format 'number-number-...-number.csv'." });
+    }
+
     const user = await userSchema.findOne({ where: { id: userId } });
 
     if (!user) {
@@ -191,13 +200,18 @@ const uploadAndGenerateData = async (req, res) => {
             reportContent += `Not in Range: NONE\n\n`;
         }
 
-        // Extract cell values row-wise (excluding Serial No. and LITHO)
+        // Extract cell values row-wise (excluding Serial No. and LITHO, and "SKEW1", "SKEW2", "SKEW3", "SKEW4")
         reportContent += `\nRow-wise Non-Empty Data:\nSerial No. Litho -> [[CellName: Value], [CellName: Value]]\n`;
         jsonData.forEach(row => {
             const serialNo = row["Serial No."];
             const litho = row["LITHO"];
             const nonEmptyCells = Object.entries(row)
-                .filter(([key, value]) => key !== "Serial No." && key !== "LITHO" && value && value.trim() !== '')
+                .filter(([key, value]) =>
+                    key !== "Serial No." &&
+                    key !== "LITHO" &&
+                    value && value.trim() !== '' &&
+                    !["SKEW1", "SKEW2", "SKEW3", "SKEW4"].includes(key)
+                )
                 .map(([key, value]) => `[${key}: ${value}]`);
 
             if (nonEmptyCells.length > 0) {
@@ -211,8 +225,8 @@ const uploadAndGenerateData = async (req, res) => {
         // Save folder information to the database
         await serializeSchema.create({ userId, folderPath: fileNameWithoutExt });
 
-        // Send the generated .txt file to the frontend for download
-        return res.download(reportTextFile, `${fileNameWithoutExt}.txt`, (err) => {
+        // Send the generated .txt file as a download to the frontend
+        res.download(reportTextFile, `${fileNameWithoutExt}.txt`, (err) => {
             if (err) {
                 console.error("Error sending the file:", err.message);
                 return res.status(500).json({ message: "Failed to send the report file", error: err.message });
