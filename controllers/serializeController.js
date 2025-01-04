@@ -77,7 +77,7 @@ const validateCsvHeaders = async (filePath) => {
 
 const uploadAndGenerateData = async (req, res) => {
     const file = req.file;
-    const { userId } = req.body;
+    const userId = req.userId;
 
     if (!file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -100,12 +100,12 @@ const uploadAndGenerateData = async (req, res) => {
             return res.status(400).json({ message: "Invalid CSV headers. Please ensure the file matches the required format." });
         }
 
-        // Extract the original file name without timestamp and extension
-        const originalFileName = file.originalname.replace(/\.[^/.]+$/, ''); // Remove file extension
-        const reportSubDir = path.join(reportDir, originalFileName);
+        // Create a subdirectory for the report
+        const fileNameWithoutExt = path.basename(file.filename, path.extname(file.filename));
+        const reportSubDir = path.join(reportDir, fileNameWithoutExt);
         ensureFolderExists(reportSubDir);
 
-        const reportTextFile = path.join(reportSubDir, `${originalFileName}.txt`);
+        const reportTextFile = path.join(reportSubDir, `${fileNameWithoutExt}.txt`);
         const reportCsvFile = path.join(reportSubDir, file.filename); // Destination for the CSV file
 
         // Copy the uploaded CSV to the report subdirectory
@@ -115,13 +115,11 @@ const uploadAndGenerateData = async (req, res) => {
         const jsonData = await csvToJson(file.path);
         const csvLength = jsonData.length;
 
-        // Initialize the report content
-        const now = moment().format('YYYY-MM-DD HH:mm:ss');
-        let reportContent = `File Name: ${originalFileName}\nDate: ${now}\nTotal Number of Data: ${csvLength}\nUser: ${user.email}\n\n`;
-
         const [minValue, maxValue] = file.filename.split('-').map(Number);
 
-        console.log(minValue, maxValue);
+        // Initialize the report content
+        const now = moment().format('YYYY-MM-DD HH:mm:ss');
+        let reportContent = `File Name: ${minValue + "-" + maxValue}\nDate: ${now}\nTotal Number of Data: ${csvLength}\nUser: ${user.email}\n\n`;
 
         // Sheet presence check
         if (csvLength === 5000) {
@@ -211,10 +209,10 @@ const uploadAndGenerateData = async (req, res) => {
         fs.writeFileSync(reportTextFile, reportContent);
 
         // Save folder information to the database
-        await serializeSchema.create({ userId, folderPath: originalFileName });
+        await serializeSchema.create({ userId, folderPath: fileNameWithoutExt });
 
         // Send the generated .txt file to the frontend for download
-        return res.download(reportTextFile, `${originalFileName}.txt`, (err) => {
+        return res.download(reportTextFile, `${fileNameWithoutExt}.txt`, (err) => {
             if (err) {
                 console.error("Error sending the file:", err.message);
                 return res.status(500).json({ message: "Failed to send the report file", error: err.message });

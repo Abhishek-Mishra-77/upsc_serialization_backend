@@ -16,6 +16,8 @@ lerna-debug.log*
 # MYSQL_USER=root
 # MYSQL_PASSWORD=root
 # SECRET_KEY=upsc_serialization_secret
+# ADMIN_EMAIL=admin@gmail.com
+# ADMIN_PASSWORD=12345678
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json

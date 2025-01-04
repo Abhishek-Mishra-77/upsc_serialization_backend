@@ -5,12 +5,12 @@ const initialUserCreation = async () => {
     try {
         const adminUser = await userSchema.findOne({ where: { role: "admin" } });
 
-        const hashedPassword = await bcrypt.hash("12345678", 10);
+        const hashedPassword = await bcrypt.hash(process.env.ADMIN_EMAIL, 10);
 
         if (!adminUser) {
             await userSchema.create({
                 username: "admin",
-                email: "admin@gmail.com",
+                email: process.env.ADMIN_EMAIL,
                 password: hashedPassword,
                 role: "admin",
                 isRestricted: false
