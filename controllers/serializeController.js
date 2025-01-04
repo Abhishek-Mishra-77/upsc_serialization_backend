@@ -100,12 +100,12 @@ const uploadAndGenerateData = async (req, res) => {
             return res.status(400).json({ message: "Invalid CSV headers. Please ensure the file matches the required format." });
         }
 
-        // Create a subdirectory for the report
-        const fileNameWithoutExt = path.basename(file.filename, path.extname(file.filename));
-        const reportSubDir = path.join(reportDir, fileNameWithoutExt);
+        // Extract the original file name without timestamp and extension
+        const originalFileName = file.originalname.replace(/\.[^/.]+$/, ''); // Remove file extension
+        const reportSubDir = path.join(reportDir, originalFileName);
         ensureFolderExists(reportSubDir);
 
-        const reportTextFile = path.join(reportSubDir, `${fileNameWithoutExt}.txt`);
+        const reportTextFile = path.join(reportSubDir, `${originalFileName}.txt`);
         const reportCsvFile = path.join(reportSubDir, file.filename); // Destination for the CSV file
 
         // Copy the uploaded CSV to the report subdirectory
@@ -117,7 +117,7 @@ const uploadAndGenerateData = async (req, res) => {
 
         // Initialize the report content
         const now = moment().format('YYYY-MM-DD HH:mm:ss');
-        let reportContent = `File Name: ${file.filename}\nDate: ${now}\nTotal Number of Data: ${csvLength}\nUser: ${user.email}\n\n`;
+        let reportContent = `File Name: ${originalFileName}\nDate: ${now}\nTotal Number of Data: ${csvLength}\nUser: ${user.email}\n\n`;
 
         const [minValue, maxValue] = file.filename.split('-').map(Number);
 
@@ -211,10 +211,10 @@ const uploadAndGenerateData = async (req, res) => {
         fs.writeFileSync(reportTextFile, reportContent);
 
         // Save folder information to the database
-        await serializeSchema.create({ userId, folderPath: fileNameWithoutExt });
+        await serializeSchema.create({ userId, folderPath: originalFileName });
 
         // Send the generated .txt file to the frontend for download
-        return res.download(reportTextFile, `${fileNameWithoutExt}.txt`, (err) => {
+        return res.download(reportTextFile, `${originalFileName}.txt`, (err) => {
             if (err) {
                 console.error("Error sending the file:", err.message);
                 return res.status(500).json({ message: "Failed to send the report file", error: err.message });
@@ -225,7 +225,6 @@ const uploadAndGenerateData = async (req, res) => {
         return res.status(500).json({ message: "Failed to upload and process the CSV", error: error.message });
     }
 };
-
 
 // Fetch all serialized data
 const getAllSerialize = async (req, res) => {
