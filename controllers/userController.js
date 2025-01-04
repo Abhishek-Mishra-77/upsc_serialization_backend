@@ -111,8 +111,13 @@ const updateUserDetails = async (req, res) => {
 
 const removeUser = async (req, res) => {
     const { id } = req.params;
+
     try {
         const user = await userSchema.findOne({ where: { id } });
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
 
         if (user.email === process.env.ADMIN_EMAIL) {
             return res.status(400).json({ message: "Cannot delete admin user" });
