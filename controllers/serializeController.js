@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import userSchema from '../models/userModel.js';
 import { Op } from 'sequelize';
+import { PDFDocument, rgb } from 'pdf-lib';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -84,7 +85,6 @@ const uploadAndGenerateData = async (req, res) => {
         return res.status(400).json({ message: "User ID is required" });
     }
 
-
     if (!file) {
         return res.status(400).json({ message: "No file uploaded" });
     }
@@ -120,11 +120,10 @@ const uploadAndGenerateData = async (req, res) => {
         const reportSubDir = path.join(reportDir, fileNameWithoutExt);
         ensureFolderExists(reportSubDir);
 
-        const reportTextFile = path.join(reportSubDir, `${fileNameWithoutExt}.txt`);
-        const reportCsvFile = path.join(reportSubDir, file.filename); // Destination for the CSV file
+        const reportPdfFile = path.join(reportSubDir, `${fileNameWithoutExt}.pdf`);
 
         // Copy the uploaded CSV to the report subdirectory
-        fs.copyFileSync(file.path, reportCsvFile);
+        fs.copyFileSync(file.path, path.join(reportSubDir, file.filename));
 
         // Convert the uploaded CSV to JSON and generate the report
         const jsonData = await csvToJson(file.path);
@@ -132,7 +131,70 @@ const uploadAndGenerateData = async (req, res) => {
 
         const [minValue, maxValue] = file.filename.split('-').map(Number);
 
-        // Initialize the report content
+        // Initialize PDF Document
+        const pdfDoc = await PDFDocument.create();
+        let page = pdfDoc.addPage([600, 800]);
+
+        // Embed a built-in font (instead of Helvetica, use the default built-in font)
+        const font = await pdfDoc.embedStandardFont('Helvetica');
+        const fontSize = 12;
+        const margin = 20;
+        let yPosition = 780; // Starting Y position for text
+
+        let pageCount = 1; // Track the total number of pages in the PDF
+
+        // Helper function to add text to the PDF, with page overflow handling
+        const addText = (text) => {
+            // Replace tabs with spaces (e.g., 4 spaces per tab)
+            const formattedText = text.replace(/\t/g, '    ');
+
+            // Split text by newlines
+            const lines = formattedText.split('\n');
+            const lineHeight = fontSize + 2; // Line height for the text
+
+            // Check if each line can fit within the current page, if not, create a new page
+            lines.forEach(line => {
+                const textWidth = font.widthOfTextAtSize(line, fontSize);
+                const pageWidth = page.getWidth();
+                const maxWidth = pageWidth - margin * 2;
+
+                // If the text is too long, split it into multiple lines (basic word wrapping)
+                while (textWidth > maxWidth) {
+                    const breakPoint = line.lastIndexOf(' ', maxWidth / fontSize);  // Find where to break the line
+                    const firstLine = line.substring(0, breakPoint);
+                    const remainingLine = line.substring(breakPoint + 1);
+
+                    page.drawText(firstLine, {
+                        x: margin,
+                        y: yPosition,
+                        size: fontSize,
+                        font,
+                        color: rgb(0, 0, 0),
+                    });
+                    yPosition -= lineHeight;
+
+                    line = remainingLine; // Use the remaining part of the line
+                }
+
+                // Draw the remaining line
+                if (yPosition - lineHeight < 20) {
+                    page = pdfDoc.addPage([600, 800]); // Add a new page if we reach the bottom
+                    yPosition = 780; // Reset Y position
+                    pageCount += 1; // Increment page count
+                }
+
+                page.drawText(line, {
+                    x: margin,
+                    y: yPosition,
+                    size: fontSize,
+                    font,
+                    color: rgb(0, 0, 0),
+                });
+
+                yPosition -= lineHeight;  // Move to the next line
+            });
+        };
+
         const now = moment().format('YYYY-MM-DD HH:mm:ss');
         let reportContent = `File Name: ${minValue + "-" + maxValue}\nDate: ${now}\nTotal Number of Data: ${csvLength}\nUser: ${user.email}\n\n`;
 
@@ -207,7 +269,7 @@ const uploadAndGenerateData = async (req, res) => {
         }
 
         // Extract cell values row-wise (excluding Serial No. and LITHO, and "SKEW1", "SKEW2", "SKEW3", "SKEW4")
-        reportContent += `\nRow-wise Non-Empty Data:\nSerial No. Litho -> CellName: Value, CellName: Value\n`;
+        reportContent += `\nData in question:\nSerial No. Litho -> CellName: Value, CellName: Value\n`;
         jsonData.forEach(row => {
             const serialNo = row["Serial No."];
             const litho = row["LITHO"];
@@ -225,14 +287,30 @@ const uploadAndGenerateData = async (req, res) => {
             }
         });
 
-        // Save the report as a .txt file
-        fs.writeFileSync(reportTextFile, reportContent);
+        // Add the report content to the PDF document
+        addText(reportContent);
+
+        // Add page numbering at the bottom of the page
+        const totalPages1 = pdfDoc.getPages().length;
+        pdfDoc.getPages().forEach((page, idx) => {
+            page.drawText(`(${idx + 1}/${totalPages1})`, {
+                x: page.getWidth() - 50,
+                y: 10,
+                size: 10,
+                font,
+                color: rgb(0, 0, 0),
+            });
+        });
+
+        // Save the PDF to a file
+        const pdfBytes = await pdfDoc.save();
+        fs.writeFileSync(reportPdfFile, pdfBytes);
 
         // Save folder information to the database
         await serializeSchema.create({ userId, folderPath: fileNameWithoutExt });
 
-        // Send the generated .txt file as a download to the frontend
-        res.download(reportTextFile, `${fileNameWithoutExt}.txt`, (err) => {
+        // Send the generated .pdf file as a download to the frontend
+        res.download(reportPdfFile, `${fileNameWithoutExt}.pdf`, (err) => {
             if (err) {
                 console.error("Error sending the file:", err.message);
                 return res.status(500).json({ message: "Failed to send the report file", error: err.message });
@@ -243,7 +321,6 @@ const uploadAndGenerateData = async (req, res) => {
         return res.status(500).json({ message: "Failed to upload and process the CSV", error: error.message });
     }
 };
-
 // Fetch all serialized data
 const getAllSerialize = async (req, res) => {
     try {
@@ -311,8 +388,8 @@ const downloadTextReportById = async (req, res) => {
             return res.status(400).json({ message: "Serialize ID is required" });
         }
 
-        if (!fileType || !['text', 'csv'].includes(fileType)) {
-            return res.status(400).json({ message: "Invalid file type. Allowed values are 'text' or 'csv'." });
+        if (!fileType || !['pdf', 'csv'].includes(fileType)) {
+            return res.status(400).json({ message: "Invalid file type. Allowed values are 'pdf' or 'csv'." });
         }
 
         // Fetch the serialize entry by ID
@@ -323,7 +400,7 @@ const downloadTextReportById = async (req, res) => {
 
         // Construct the file path
         const folderPath = serialize.folderPath;
-        const fileExtension = fileType === 'text' ? 'txt' : 'csv';
+        const fileExtension = fileType === 'pdf' ? 'pdf' : 'csv';
         const reportFilePath = path.join(__dirname, `../completedSerializedReport/${folderPath}/${folderPath}.${fileExtension}`);
 
         // Check if the file exists
@@ -331,19 +408,25 @@ const downloadTextReportById = async (req, res) => {
             return res.status(404).json({ message: `${fileType.toUpperCase()} report file not found` });
         }
 
-        // Read the file as a stream (blob)
-        const fileStream = fs.createReadStream(reportFilePath);
-
-        // Set headers for download
-        res.setHeader('Content-Type', fileType === 'text' ? 'text/plain' : 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename="${folderPath}.${fileExtension}"`);
+        // Set the appropriate Content-Type and headers for download
+        if (fileType === 'pdf') {
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="${folderPath}.pdf"`);
+        } else if (fileType === 'csv') {
+            res.setHeader('Content-Type', 'text/csv');
+            res.setHeader('Content-Disposition', `attachment; filename="${folderPath}.csv"`);
+        }
 
         // Add Access-Control-Expose-Headers to expose the Content-Disposition header
         res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Custom-Header');
 
+        // Read the file as a stream (blob)
+        const fileStream = fs.createReadStream(reportFilePath);
+
         // Pipe the file stream to the response (this will download the file)
         fileStream.pipe(res);
 
+        // Error handling if there's an issue streaming the file
         fileStream.on('error', (err) => {
             console.error("Error sending file:", err.message);
             res.status(500).json({ message: "Failed to send the report file", error: err.message });
@@ -353,7 +436,6 @@ const downloadTextReportById = async (req, res) => {
         res.status(500).json({ message: "Failed to download the report file", error: error.message });
     }
 };
-
 
 const onCheckFileAlreadyPresent = async (req, res) => {
     const { filename } = req.query;
@@ -373,10 +455,13 @@ const onCheckFileAlreadyPresent = async (req, res) => {
             }
         });
 
+        console.log(matchedFile)
+
         if (matchedFile) {
-            return res.status(200).json({ message: "File already present" });
+            console.log("File already present");
+            return res.status(200).json({ message: "File already present", isPresent: true });
         } else {
-            return res.status(404).json({ message: "File not found in database" });
+            return res.status(404).json({ message: "File not found in database", isPresent: false });
         }
     } catch (error) {
         console.error("Error checking file:", error.message);
