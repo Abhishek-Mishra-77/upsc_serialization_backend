@@ -456,10 +456,8 @@ const onCheckFileAlreadyPresent = async (req, res) => {
             }
         });
 
-        console.log(matchedFile)
 
         if (matchedFile) {
-            console.log("File already present");
             return res.status(200).json({ message: "File already present", isPresent: true });
         } else {
             return res.status(404).json({ message: "File not found in database", isPresent: false });
