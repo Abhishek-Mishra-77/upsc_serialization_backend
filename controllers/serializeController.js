@@ -253,7 +253,6 @@ const getAllSerialize = async (req, res) => {
     }
 };
 
-
 const getAllSerializeByUserId = async (req, res) => {
     const { userId, role } = req;
 
@@ -302,7 +301,6 @@ const getAllSerializeByUserId = async (req, res) => {
     }
 };
 
-
 const downloadTextReportById = async (req, res) => {
     const { serializeId, fileType } = req.query;
 
@@ -338,9 +336,9 @@ const downloadTextReportById = async (req, res) => {
         // Set headers for download
         res.setHeader('Content-Type', fileType === 'text' ? 'text/plain' : 'text/csv');
         res.setHeader('Content-Disposition', `attachment; filename="${folderPath}.${fileExtension}"`);
-        
+
         // Add Access-Control-Expose-Headers to expose the Content-Disposition header
-        res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Custom-Header'); 
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Custom-Header');
 
         // Pipe the file stream to the response (this will download the file)
         fileStream.pipe(res);
