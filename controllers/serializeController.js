@@ -79,6 +79,11 @@ const uploadAndGenerateData = async (req, res) => {
     const file = req.file;
     const userId = req.userId;
 
+    if(!userId) {
+        return res.status(400).json({ message: "User ID is required" });
+    }
+
+
     if (!file) {
         return res.status(400).json({ message: "No file uploaded" });
     }
@@ -248,11 +253,58 @@ const getAllSerialize = async (req, res) => {
     }
 };
 
-const getAllSerializeByUserId = async (req, res) => { };
+const getAllSerializeByUserId = async (req, res) => {
+    const { userId, role } = req;
 
-const downloadTextReport = async (req, res) => { };
+    try {
+        let serializes;
+        if (role === 'admin') {
+            serializes = await serializeSchema.findAll();
+        } else {
+            serializes = await serializeSchema.findAll({ where: { userId } });
+        }
+
+        return res.status(200).json(serializes);
+
+    } catch (error) {
+        console.error("Error fetching serializes:", error);
+        return res.status(500).json({
+            message: "Failed to fetch serializes",
+            error: error.message
+        });
+    }
+};
+
+const downloadTextReportById = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // Fetch the serialize entry by ID
+        const serialize = await serializeSchema.findOne({ where: { id } });
+        if (!serialize) {
+            return res.status(404).json({ message: "Serialize not found" });
+        }
+
+        const folderPath = serialize.folderPath;
+        const reportTextFile = path.join(__dirname, `../completedSerializedReport/${folderPath}/${folderPath}.txt`);
+
+        if (!fs.existsSync(reportTextFile)) {
+            return res.status(404).json({ message: "Report file not found" });
+        }
+
+        res.download(reportTextFile, `${folderPath}.txt`, (err) => {
+            if (err) {
+                console.error("Error sending the file:", err.message);
+                return res.status(500).json({ message: "Failed to send the report file", error: err.message });
+            }
+        });
+
+    } catch (error) {
+        console.error("Error fetching or sending the report file:", error.message);
+        return res.status(500).json({ message: "Failed to download the report file", error: error.message });
+    }
+};
 
 
 
-
-export { uploadAndGenerateData, getAllSerialize, upload };
+export { uploadAndGenerateData, getAllSerialize, upload, getAllSerializeByUserId, downloadTextReportById };
