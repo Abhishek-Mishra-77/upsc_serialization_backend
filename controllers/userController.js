@@ -1,6 +1,7 @@
 import userSchema from "../models/userModel.js";
 import bcrypt from "bcryptjs"
 import { generateToken } from "../services/generateToken.js";
+import serializeSchema from "../models/serializeModel.js";
 
 const createUser = async (req, res) => {
     const { username, email, password, role } = req.body;
@@ -165,4 +166,34 @@ const loginHandler = async (req, res) => {
     }
 }
 
-export { createUser, getUserById, getAllUsers, updateUserDetails, removeUser, loginHandler };
+const getAnalytics = async (req, res) => {
+    const { userId, role } = req;
+
+    try {
+        if (role !== 'admin') {
+            return res.status(401).json({ message: "Only admin can access analytics" });
+        }
+
+        if (!userId) {
+            return res.status(400).json({ message: "User ID is required" });
+        }
+
+        const allUsers = await userSchema.findAll({ attributes: ['id', 'username', 'email', 'role'] });
+        const allActiveUsers = await userSchema.findAll({ where: { isRestricted: false }, attributes: ['id', 'username', 'email', 'role'] });
+        const allUploadedFiles = await serializeSchema.findAll();
+
+        const analyticsData = {
+            users: allUsers.length,
+            activeUsers: allActiveUsers.length,
+            uploadedFiles: allUploadedFiles.length
+        }
+
+        return res.status(200).json({ analyticsData });
+
+    }
+    catch (error) {
+        return res.status(500).json({ message: "Failed to fetch analytics", error: error.message });
+    }
+}
+
+export { createUser, getUserById, getAllUsers, updateUserDetails, removeUser, loginHandler, getAnalytics };

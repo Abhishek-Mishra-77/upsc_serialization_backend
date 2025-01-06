@@ -253,6 +253,7 @@ const getAllSerialize = async (req, res) => {
     }
 };
 
+
 const getAllSerializeByUserId = async (req, res) => {
     const { userId, role } = req;
 
@@ -301,6 +302,7 @@ const getAllSerializeByUserId = async (req, res) => {
     }
 };
 
+
 const downloadTextReportById = async (req, res) => {
     const { serializeId, fileType } = req.query;
 
@@ -330,17 +332,28 @@ const downloadTextReportById = async (req, res) => {
             return res.status(404).json({ message: `${fileType.toUpperCase()} report file not found` });
         }
 
-        // Send the file as a download
-        res.download(reportFilePath, `${folderPath}.${fileExtension}`, (err) => {
-            if (err) {
-                console.error(`Error sending the ${fileType.toUpperCase()} file:`, err.message);
-                return res.status(500).json({ message: `Failed to send the ${fileType.toUpperCase()} report file`, error: err.message });
-            }
+        // Read the file as a stream (blob)
+        const fileStream = fs.createReadStream(reportFilePath);
+
+        // Set headers for download
+        res.setHeader('Content-Type', fileType === 'text' ? 'text/plain' : 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${folderPath}.${fileExtension}"`);
+        
+        // Add Access-Control-Expose-Headers to expose the Content-Disposition header
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Custom-Header'); 
+
+        // Pipe the file stream to the response (this will download the file)
+        fileStream.pipe(res);
+
+        fileStream.on('error', (err) => {
+            console.error("Error sending file:", err.message);
+            res.status(500).json({ message: "Failed to send the report file", error: err.message });
         });
     } catch (error) {
         console.error("Error fetching or sending the report file:", error.message);
-        return res.status(500).json({ message: "Failed to download the report file", error: error.message });
+        res.status(500).json({ message: "Failed to download the report file", error: error.message });
     }
 };
+
 
 export { uploadAndGenerateData, getAllSerialize, upload, getAllSerializeByUserId, downloadTextReportById };
