@@ -308,7 +308,8 @@ const uploadAndGenerateData = async (req, res) => {
 
         // Save folder information to the database
         await serializeSchema.create({ userId, folderPath: fileNameWithoutExt });
-
+        // Add Access-Control-Expose-Headers to expose the Content-Disposition header
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Custom-Header');
         // Send the generated .pdf file as a download to the frontend
         res.download(reportPdfFile, `${fileNameWithoutExt}.pdf`, (err) => {
             if (err) {
