@@ -8,6 +8,7 @@ import csvToJson from "../services/csvToJson.js";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import userSchema from '../models/userModel.js';
+import { Op } from 'sequelize';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -354,4 +355,33 @@ const downloadTextReportById = async (req, res) => {
 };
 
 
-export { uploadAndGenerateData, getAllSerialize, upload, getAllSerializeByUserId, downloadTextReportById };
+const onCheckFileAlreadyPresent = async (req, res) => {
+    const { filename } = req.query;
+
+    try {
+        if (!filename) {
+            return res.status(400).json({ message: "Filename is required" });
+        }
+
+        const filePrefix = filename.replace(/\.csv$/, '');
+
+        const matchedFile = await serializeSchema.findOne({
+            where: {
+                folderPath: {
+                    [Op.like]: `${filePrefix}-%`
+                }
+            }
+        });
+
+        if (matchedFile) {
+            return res.status(200).json({ message: "File already present" });
+        } else {
+            return res.status(404).json({ message: "File not found in database" });
+        }
+    } catch (error) {
+        console.error("Error checking file:", error.message);
+        res.status(500).json({ message: "Error checking file presence", error: error.message });
+    }
+};
+
+export { uploadAndGenerateData, getAllSerialize, upload, getAllSerializeByUserId, downloadTextReportById, onCheckFileAlreadyPresent };
