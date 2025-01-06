@@ -79,7 +79,7 @@ const uploadAndGenerateData = async (req, res) => {
     const file = req.file;
     const userId = req.userId;
 
-    if(!userId) {
+    if (!userId) {
         return res.status(400).json({ message: "User ID is required" });
     }
 
@@ -206,7 +206,7 @@ const uploadAndGenerateData = async (req, res) => {
         }
 
         // Extract cell values row-wise (excluding Serial No. and LITHO, and "SKEW1", "SKEW2", "SKEW3", "SKEW4")
-        reportContent += `\nRow-wise Non-Empty Data:\nSerial No. Litho -> [[CellName: Value], [CellName: Value]]\n`;
+        reportContent += `\nRow-wise Non-Empty Data:\nSerial No. Litho -> CellName: Value, CellName: Value\n`;
         jsonData.forEach(row => {
             const serialNo = row["Serial No."];
             const litho = row["LITHO"];
@@ -217,10 +217,10 @@ const uploadAndGenerateData = async (req, res) => {
                     value && value.trim() !== '' &&
                     !["SKEW1", "SKEW2", "SKEW3", "SKEW4"].includes(key)
                 )
-                .map(([key, value]) => `[${key}: ${value}]`);
+                .map(([key, value]) => `${key}: ${value}`);
 
             if (nonEmptyCells.length > 0) {
-                reportContent += `${serialNo} ${litho} -> [${nonEmptyCells.join(", ")}]\n`;
+                reportContent += `${serialNo} ${litho} -> ${nonEmptyCells.join(", ")}\n`;
             }
         });
 
@@ -257,54 +257,90 @@ const getAllSerializeByUserId = async (req, res) => {
     const { userId, role } = req;
 
     try {
-        let serializes;
-        if (role === 'admin') {
-            serializes = await serializeSchema.findAll();
-        } else {
-            serializes = await serializeSchema.findAll({ where: { userId } });
+        if (!userId) {
+            return res.status(400).json({ message: "User ID is required" });
         }
 
-        return res.status(200).json(serializes);
+        if (!role) {
+            return res.status(400).json({ message: "Role is required" });
+        }
 
+        let serializes;
+
+        if (role === 'admin') {
+            // Fetch all serializes with user details for admin
+            serializes = await serializeSchema.findAll({
+                include: [
+                    {
+                        model: userSchema,
+                        attributes: ['email'],
+                    },
+                ],
+            });
+        } else {
+            // Fetch serializes only for the specific user
+            serializes = await serializeSchema.findAll({
+                where: { userId },
+                include: [
+                    {
+                        model: userSchema,
+                        attributes: ['email'],
+                    },
+                ],
+            });
+        }
+
+
+        return res.status(200).json(serializes);
     } catch (error) {
         console.error("Error fetching serializes:", error);
         return res.status(500).json({
             message: "Failed to fetch serializes",
-            error: error.message
+            error: error.message,
         });
     }
 };
 
 const downloadTextReportById = async (req, res) => {
-    const { id } = req.params;
+    const { serializeId, fileType } = req.query;
 
     try {
+        // Validate input parameters
+        if (!serializeId) {
+            return res.status(400).json({ message: "Serialize ID is required" });
+        }
+
+        if (!fileType || !['text', 'csv'].includes(fileType)) {
+            return res.status(400).json({ message: "Invalid file type. Allowed values are 'text' or 'csv'." });
+        }
+
         // Fetch the serialize entry by ID
-        const serialize = await serializeSchema.findOne({ where: { id } });
+        const serialize = await serializeSchema.findOne({ where: { id: serializeId } });
         if (!serialize) {
             return res.status(404).json({ message: "Serialize not found" });
         }
 
+        // Construct the file path
         const folderPath = serialize.folderPath;
-        const reportTextFile = path.join(__dirname, `../completedSerializedReport/${folderPath}/${folderPath}.txt`);
+        const fileExtension = fileType === 'text' ? 'txt' : 'csv';
+        const reportFilePath = path.join(__dirname, `../completedSerializedReport/${folderPath}/${folderPath}.${fileExtension}`);
 
-        if (!fs.existsSync(reportTextFile)) {
-            return res.status(404).json({ message: "Report file not found" });
+        // Check if the file exists
+        if (!fs.existsSync(reportFilePath)) {
+            return res.status(404).json({ message: `${fileType.toUpperCase()} report file not found` });
         }
 
-        res.download(reportTextFile, `${folderPath}.txt`, (err) => {
+        // Send the file as a download
+        res.download(reportFilePath, `${folderPath}.${fileExtension}`, (err) => {
             if (err) {
-                console.error("Error sending the file:", err.message);
-                return res.status(500).json({ message: "Failed to send the report file", error: err.message });
+                console.error(`Error sending the ${fileType.toUpperCase()} file:`, err.message);
+                return res.status(500).json({ message: `Failed to send the ${fileType.toUpperCase()} report file`, error: err.message });
             }
         });
-
     } catch (error) {
         console.error("Error fetching or sending the report file:", error.message);
         return res.status(500).json({ message: "Failed to download the report file", error: error.message });
     }
 };
-
-
 
 export { uploadAndGenerateData, getAllSerialize, upload, getAllSerializeByUserId, downloadTextReportById };
