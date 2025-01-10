@@ -77,6 +77,7 @@ const validateCsvHeaders = async (filePath) => {
     });
 };
 
+
 const uploadAndGenerateData = async (req, res) => {
     const file = req.file;
     const userId = req.userId;
@@ -191,19 +192,19 @@ const uploadAndGenerateData = async (req, res) => {
                     color: rgb(0, 0, 0),
                 });
 
-                yPosition -= lineHeight;  // Move to the next line
+                yPosition -= lineHeight;
             });
         };
 
         const now = moment().format('YYYY-MM-DD HH:mm:ss');
-        let reportContent = `File Name: ${minValue + "-" + maxValue}\nDate: ${now}\nTotal Number of Data: ${csvLength}\nUser: ${user.email}\n\n`;
+        let reportContent = `                                                              File Name: ${minValue + "-" + maxValue}\n\nDate: ${now}                  User: ${user.email}\nTotal Number of Data: 5000\n\n`;
 
         // Sheet presence check
         if (csvLength === 5000) {
             reportContent += `Sheet Present:5000 => OK\n\n`;
         } else {
             const discrepancy = Math.abs(5000 - csvLength);
-            reportContent += `Sheet Present: ${csvLength} => NOT OK (${discrepancy} missing)\n\n`;
+            reportContent += `Sheet Present: ${csvLength} => NOT OK (${discrepancy} ${csvLength > 5000 ? 'Extra' : 'Mising'})\n\n`;
 
             const lithoCode = jsonData.map(row => Number(row["LITHO"]));
             const serialNumbers = jsonData.map(row => Number(row["Serial No."]));
@@ -322,6 +323,7 @@ const uploadAndGenerateData = async (req, res) => {
         return res.status(500).json({ message: "Failed to upload and process the CSV", error: error.message });
     }
 };
+
 // Fetch all serialized data
 const getAllSerialize = async (req, res) => {
     try {
