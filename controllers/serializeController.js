@@ -224,9 +224,9 @@ const uploadAndGenerateData = async (req, res) => {
 
             // Report missing data (Serial No, LITHO)
             if (missingSerials.length > 0) {
-                reportContent += `Missing Data (Serial No, LITHO):\nSerial No             Expexcted LITHO     Current LITHO\n`;
+                reportContent += `Missing Data (Serial No, LITHO):\nSerial No             Current LITHO          Expexcted LITHO\n`;
                 for (let i = 0; i < missingSerials.length; i++) {
-                    reportContent += `${missingSerials[i]}           \t${missingLithos[i]}\t             ${currentLitho[i]}\n`;
+                    reportContent += `${missingSerials[i]}           \t${currentLitho[i]}\t             ${missingLithos[i]}\n`;
                 }
             }
 
