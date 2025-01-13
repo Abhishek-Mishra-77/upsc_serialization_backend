@@ -212,20 +212,21 @@ const uploadAndGenerateData = async (req, res) => {
 
             let missingLithos = [];
             let missingSerials = [];
+            let currentLitho = [];
 
             for (let i = 0; i < expectedSerials.length; i++) {
                 if (!lithoCode.includes(expectedSerials[i])) {
                     missingLithos.push(expectedSerials[i]);
                     missingSerials.push(serialNumbers[i]);
+                    currentLitho.push(lithoCode[i]);
                 }
             }
 
             // Report missing data (Serial No, LITHO)
             if (missingSerials.length > 0) {
-                reportContent += `Missing Data (Serial No, LITHO):\nSerial No,  LITHO\n`;
-
+                reportContent += `Missing Data (Serial No, LITHO):\nSerial No,             Expexcted LITHO     Current LITHO\n`;
                 for (let i = 0; i < missingSerials.length; i++) {
-                    reportContent += `${missingSerials[i]} \t${missingLithos[i]}\n`;
+                    reportContent += `${missingSerials[i]}           \t${missingLithos[i]}\t             ${currentLitho[i]}\n`;
                 }
             }
 
