@@ -224,7 +224,7 @@ const uploadAndGenerateData = async (req, res) => {
 
             // Report missing data (Serial No, LITHO)
             if (missingSerials.length > 0) {
-                reportContent += `Missing Data (Serial No, LITHO):\nSerial No,             Expexcted LITHO     Current LITHO\n`;
+                reportContent += `Missing Data (Serial No, LITHO):\nSerial No             Expexcted LITHO     Current LITHO\n`;
                 for (let i = 0; i < missingSerials.length; i++) {
                     reportContent += `${missingSerials[i]}           \t${missingLithos[i]}\t             ${currentLitho[i]}\n`;
                 }
@@ -243,11 +243,11 @@ const uploadAndGenerateData = async (req, res) => {
 
         const duplicates = Object.entries(lithoCounts).filter(([key, count]) => count > 1);
         if (duplicates.length > 0) {
-            reportContent += `Duplicate Litho Code: FOUND (${duplicates.length})\nSerial No, LITHO\n`;
+            reportContent += `Duplicate Litho Code: FOUND (${duplicates.length})\nSerial No            LITHO\n`;
             duplicates.forEach(([litho, count]) => {
                 const duplicateRows = jsonData.filter(row => row["LITHO"] === litho);
                 duplicateRows.forEach(row => {
-                    reportContent += `${row["Serial No."]} - ${row["LITHO"]}\n`;
+                    reportContent += `${row["Serial No."]}     \t   ${row["LITHO"]}\n`;
                 });
             });
             reportContent += '\n';
@@ -262,16 +262,16 @@ const uploadAndGenerateData = async (req, res) => {
         });
 
         if (outOfRangeData.length > 0) {
-            reportContent += `Not in Range: YES\nSerial No, LITHO\n`;
+            reportContent += `Not in Range: YES\nSerial No       LITHO\n`;
             outOfRangeData.forEach(row => {
-                reportContent += `${row["Serial No."]} \t${row["LITHO"]}\n`;
+                reportContent += `${row["Serial No."]}   \t${row["LITHO"]}\n`;
             });
         } else {
             reportContent += `Not in Range: NONE\n\n`;
         }
 
         // Extract cell values row-wise (excluding Serial No. and LITHO, and "SKEW1", "SKEW2", "SKEW3", "SKEW4")
-        reportContent += `\nData in question:\nSerial No. Litho -> CellName: Value, CellName: Value\n`;
+        reportContent += `\nData in question:\nSerial No.     Litho                ->    CellName: Value, CellName: Value\n`;
         jsonData.forEach(row => {
             const serialNo = row["Serial No."];
             const litho = row["LITHO"];
@@ -285,7 +285,7 @@ const uploadAndGenerateData = async (req, res) => {
                 .map(([key, value]) => `${key}: ${value}`);
 
             if (nonEmptyCells.length > 0) {
-                reportContent += `${serialNo} ${litho} -> ${nonEmptyCells.join(", ")}\n`;
+                reportContent += `${serialNo}       ${litho}       ->      ${nonEmptyCells.join(", ")}\n`;
             }
         });
 
