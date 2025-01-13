@@ -230,7 +230,7 @@ const uploadAndGenerateData = async (req, res) => {
                 }
             }
 
-            reportContent += '\n';
+            reportContent += `\nTotal: ${missingSerials.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
         }
 
         // Duplicate Litho Code check
@@ -243,14 +243,16 @@ const uploadAndGenerateData = async (req, res) => {
 
         const duplicates = Object.entries(lithoCounts).filter(([key, count]) => count > 1);
         if (duplicates.length > 0) {
+            let totalDuplicates = 0;
             reportContent += `Duplicate Litho Code: FOUND (${duplicates.length})\nSerial No            LITHO\n`;
             duplicates.forEach(([litho, count]) => {
                 const duplicateRows = jsonData.filter(row => row["LITHO"] === litho);
                 duplicateRows.forEach(row => {
+                    totalDuplicates++;
                     reportContent += `${row["Serial No."]}     \t   ${row["LITHO"]}\n`;
                 });
             });
-            reportContent += '\n';
+            reportContent += `\nTotal: ${totalDuplicates}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
         } else {
             reportContent += `Duplicate Litho Code: NONE (0)\n\n`;
         }
@@ -266,12 +268,16 @@ const uploadAndGenerateData = async (req, res) => {
             outOfRangeData.forEach(row => {
                 reportContent += `${row["Serial No."]}   \t${row["LITHO"]}\n`;
             });
+            reportContent += `\nTotal: ${outOfRangeData.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
         } else {
             reportContent += `Not in Range: NONE\n\n`;
         }
 
         // Extract cell values row-wise (excluding Serial No. and LITHO, and "SKEW1", "SKEW2", "SKEW3", "SKEW4")
         reportContent += `\nData in question:\nSerial No.     Litho                ->    CellName: Value, CellName: Value\n`;
+
+        let totalRows = 0;
+
         jsonData.forEach(row => {
             const serialNo = row["Serial No."];
             const litho = row["LITHO"];
@@ -285,9 +291,12 @@ const uploadAndGenerateData = async (req, res) => {
                 .map(([key, value]) => `${key}: ${value}`);
 
             if (nonEmptyCells.length > 0) {
+                totalRows++;
                 reportContent += `${serialNo}       ${litho}       ->      ${nonEmptyCells.join(", ")}\n`;
             }
         });
+
+        reportContent += `\nTotal: ${totalRows}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
 
         // Add the report content to the PDF document
         addText(reportContent);
