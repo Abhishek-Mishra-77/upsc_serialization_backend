@@ -1,9 +1,11 @@
 import express from "express";
 const router = express.Router();
 
-import { uploadAndGenerateData, upload, getAllSerializeByUserId, downloadTextReportById, onCheckFileAlreadyPresent } from "../controllers/serializeController.js";
+import { uploadAndGenerateData, getAllSerializeByUserId, downloadTextReportById, onCheckFileAlreadyPresent } from "../controllers/serializeController.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
+import { upload } from "../middlewares/serializeFileUpload.js";
 
+// router.post('/upload', upload.array('file', 10), uploadAndGenerateData);
 router.post('/upload', authMiddleware, upload.single('file'), uploadAndGenerateData);
 router.get('/check', authMiddleware, onCheckFileAlreadyPresent);
 router.get('/getall/serialize', authMiddleware, getAllSerializeByUserId);
