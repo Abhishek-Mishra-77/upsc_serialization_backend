@@ -687,7 +687,7 @@ const uploadAndGenerateData = async (req, res) => {
         let ExpexctedLithos = [];
         let missingSerials = [];
         let currentLitho = [];
-
+        let previousLitho = null;
         for (let i = 0; i < expectedSerials.length; i++) {
             if (lithoCode[i] !== expectedSerials[i]) {
                 ExpexctedLithos.push(expectedSerials[i]);
@@ -696,16 +696,27 @@ const uploadAndGenerateData = async (req, res) => {
             }
         }
 
-        // Report missing data (Serial No, LITHO)
         if (missingSerials?.length > 0) {
             reportContent += `Sequence Data (Serial No, LITHO):\nSerial No             Current LITHO          Expexcted LITHO\n`;
 
             for (let i = 0; i < missingSerials.length; i++) {
-                reportContent += `${missingSerials[i]}            \t${currentLitho[i]}               \t${ExpexctedLithos[i]}\n`;
+                let serial = missingSerials[i];
+                let current = currentLitho[i];
+                let expected = ExpexctedLithos[i];
+
+                // Check for breaks in the sequence and group accordingly
+                if (previousLitho && parseInt(current) !== parseInt(previousLitho) + 1) {
+                    reportContent += `...\n`; // Indicating break in sequence
+                }
+
+                reportContent += `${serial}            \t${current}               \t${expected}\n`;
+
+                // Update the break point
+                previousLitho = current;
             }
+
             reportContent += `\nTotal: ${missingSerials.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
         }
-
 
 
         // Duplicate Litho Code check
