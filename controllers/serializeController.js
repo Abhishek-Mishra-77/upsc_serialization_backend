@@ -687,7 +687,9 @@ const uploadAndGenerateData = async (req, res) => {
         let ExpexctedLithos = [];
         let missingSerials = [];
         let currentLitho = [];
-        let previousLitho = null;
+
+        let sequenceStart = true; // To track if we are at the start of a sequence
+
         for (let i = 0; i < expectedSerials.length; i++) {
             if (lithoCode[i] !== expectedSerials[i]) {
                 ExpexctedLithos.push(expectedSerials[i]);
@@ -696,6 +698,7 @@ const uploadAndGenerateData = async (req, res) => {
             }
         }
 
+        // Report missing data (Serial No, LITHO)
         if (missingSerials?.length > 0) {
             reportContent += `Sequence Data (Serial No, LITHO):\nSerial No             Current LITHO          Expexcted LITHO\n`;
 
@@ -704,19 +707,32 @@ const uploadAndGenerateData = async (req, res) => {
                 let current = currentLitho[i];
                 let expected = ExpexctedLithos[i];
 
-                // Check for breaks in the sequence and group accordingly
-                if (previousLitho && parseInt(current) !== parseInt(previousLitho) + 1) {
-                    reportContent += `...\n`; // Indicating break in sequence
+                if (sequenceStart) {
+                    // Print the first item in the sequence
+                    reportContent += `${serial}            \t${current}               \t${expected}\n`;
+                    sequenceStart = false;
                 }
 
-                reportContent += `${serial}            \t${current}               \t${expected}\n`;
+                // Check if the sequence is broken
+                if (i + 1 < missingSerials.length) {
+                    let nextCurrent = currentLitho[i + 1];
+                    if (parseInt(nextCurrent) !== parseInt(current) + 1) {
+                        // Sequence break detected
+                        reportContent += `...\n`; // Add ellipsis for the current sequence
+                        sequenceStart = true; // Mark the next item as a new sequence
+                    }
+                }
+            }
 
-                // Update the break point
-                previousLitho = current;
+            // Add ellipsis for the last sequence if it continues
+            if (!sequenceStart) {
+                reportContent += `...\n`;
             }
 
             reportContent += `\nTotal: ${missingSerials.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
         }
+
+
 
 
         // Duplicate Litho Code check
