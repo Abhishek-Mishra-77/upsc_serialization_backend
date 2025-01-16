@@ -211,50 +211,50 @@ const uploadAndGenerateData = async (req, res) => {
         } else {
             const discrepancy = Math.abs(5000 - csvLength);
             reportContent += `Sheet Present: ${csvLength} => NOT OK (${discrepancy} ${csvLength > 5000 ? 'Extra' : 'Mising'})\n\n`;
-
-
-            let missingLithos = [];
-            let missingSerials = [];
-
-            for (let i = 0; i < expectedSerials.length; i++) {
-                if (!lithoCode.includes(expectedSerials[i])) {
-                    missingLithos.push(expectedSerials[i]);
-                    missingSerials.push(serialNumbers[i]);
-                }
-            }
-
-            // Report missing data (Serial No, LITHO)
-            if (missingSerials.length > 0) {
-                reportContent += `Missing Data (Serial No, LITHO):\nSerial No    LITHO\n`;
-
-                for (let i = 0; i < missingSerials.length; i++) {
-                    reportContent += `${missingSerials[i]} \t${missingLithos[i]}\n`;
-                }
-            }
-
-            reportContent += `\nTotal: ${missingSerials.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
         }
 
-        let ExpexctedLithos = [];
+        let missingLithos = [];
         let missingSerials = [];
+
+        for (let i = 0; i < expectedSerials.length; i++) {
+            if (!lithoCode.includes(expectedSerials[i])) {
+                missingLithos.push(expectedSerials[i]);
+                missingSerials.push(serialNumbers[i]);
+            }
+        }
+
+        // Report missing data (Serial No, LITHO)
+        if (missingSerials.length > 0) {
+            reportContent += `\n=========================  Missing Data (Serial No, LITHO): ========================= \nSerial No    LITHO \n\n`;
+            for (let i = 0; i < missingSerials.length; i++) {
+                reportContent += `${missingSerials[i]} \t${missingLithos[i]}\n`;
+            }
+        }
+        else {
+            reportContent += `\n=========================  Missing Data  (0) (Serial No, LITHO):  =========================\nSerial No    LITHO \n\n`;
+        }
+
+        reportContent += `\nTotal: ${missingSerials.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
+
+        let ExpexctedLithos = [];
+        let missingSerials1 = [];
         let currentLitho = [];
 
-        let sequenceStart = true; // To track if we are at the start of a sequence
+        let sequenceStart = true;
 
         for (let i = 0; i < expectedSerials.length; i++) {
             if (lithoCode[i] !== expectedSerials[i]) {
                 ExpexctedLithos.push(expectedSerials[i]);
-                missingSerials.push(serialNumbers[i]);
+                missingSerials1.push(serialNumbers[i]);
                 currentLitho.push(lithoCode[i]);
             }
         }
 
         // Report missing data (Serial No, LITHO)
-        if (missingSerials?.length > 0) {
-            reportContent += `Sequence Data (Serial No, LITHO):\nSerial No             Current LITHO          Expexcted LITHO\n`;
-
-            for (let i = 0; i < missingSerials.length; i++) {
-                let serial = missingSerials[i];
+        if (missingSerials1?.length > 0) {
+            reportContent += `\n=========================  Sequence Data (Serial No, LITHO): ========================= \nSerial No             Current LITHO          Expexcted LITHO \n\n`;
+            for (let i = 0; i < missingSerials1.length; i++) {
+                let serial = missingSerials1[i];
                 let current = currentLitho[i];
                 let expected = ExpexctedLithos[i];
 
@@ -265,7 +265,7 @@ const uploadAndGenerateData = async (req, res) => {
                 }
 
                 // Check if the sequence is broken
-                if (i + 1 < missingSerials.length) {
+                if (i + 1 < missingSerials1.length) {
                     let nextCurrent = currentLitho[i + 1];
                     if (parseInt(nextCurrent) !== parseInt(current) + 1) {
                         // Sequence break detected
@@ -280,7 +280,7 @@ const uploadAndGenerateData = async (req, res) => {
                 reportContent += `...\n`;
             }
 
-            reportContent += `\nTotal: ${missingSerials.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
+            reportContent += `\nTotal: ${missingSerials1.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
         }
 
 
@@ -297,7 +297,7 @@ const uploadAndGenerateData = async (req, res) => {
         const duplicates = Object.entries(lithoCounts).filter(([key, count]) => count > 1);
         if (duplicates.length > 0) {
             let totalDuplicates = 0;
-            reportContent += `Duplicate Litho Code: FOUND (${duplicates.length})\nSerial No            LITHO\n`;
+            reportContent += `\n=========================  Duplicate Litho Code: FOUND (${duplicates.length}) =========================\nSerial No            LITHO\n\n`;
             duplicates.forEach(([litho, count]) => {
                 const duplicateRows = jsonData.filter(row => row["LITHO"] === litho);
                 duplicateRows.forEach(row => {
@@ -307,7 +307,7 @@ const uploadAndGenerateData = async (req, res) => {
             });
             reportContent += `\nTotal: ${totalDuplicates}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
         } else {
-            reportContent += `Duplicate Litho Code: NONE (0)\n\n`;
+            reportContent += `\n=========================  Duplicate Litho Code: NONE (0) =========================\n\n`;
         }
 
         // Not in Range Check
@@ -317,17 +317,17 @@ const uploadAndGenerateData = async (req, res) => {
         });
 
         if (outOfRangeData.length > 0) {
-            reportContent += `Not in Range: YES\nSerial No       LITHO\n`;
+            reportContent += `\n=========================  Not in Range: YES\nSerial No       LITHO =========================\n\n`;
             outOfRangeData.forEach(row => {
                 reportContent += `${row["Serial No."]}   \t${row["LITHO"]}\n`;
             });
             reportContent += `\nTotal: ${outOfRangeData.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
         } else {
-            reportContent += `Not in Range: NONE\n\n`;
+            reportContent += `\n=========================  Not in Range: NONE =========================\n\n`;
         }
 
         // Extract cell values row-wise (excluding Serial No. and LITHO, and "SKEW1", "SKEW2", "SKEW3", "SKEW4")
-        reportContent += `\nData in question:\nSerial No.     Litho                ->    CellName: Value, CellName: Value\n`;
+        reportContent += `\n=========================  Data in question: =========================   \nSerial No.     Litho                ->    CellName: Value, CellName: Value \n\n`;
 
         let totalRows = 0;
 
