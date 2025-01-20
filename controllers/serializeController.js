@@ -141,9 +141,9 @@ const uploadAndGenerateData = async (req, res) => {
         const font = await pdfDoc.embedStandardFont('Helvetica');
         const fontSize = 12;
         const margin = 20;
-        let yPosition = 780; // Starting Y position for text
+        let yPosition = 780;
 
-        let pageCount = 1; // Track the total number of pages in the PDF
+        let pageCount = 1;
 
         // Helper function to add text to the PDF, with page overflow handling
         const addText = (text) => {
@@ -223,6 +223,7 @@ const uploadAndGenerateData = async (req, res) => {
             }
         }
 
+
         // Report missing data (Serial No, LITHO)
         if (missingSerials.length > 0) {
             reportContent += `\n=========================  Missing Data (Serial No, LITHO): ========================= \nSerial No    LITHO \n\n`;
@@ -236,52 +237,157 @@ const uploadAndGenerateData = async (req, res) => {
 
         reportContent += `\nTotal: ${missingSerials.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
 
-        let ExpexctedLithos = [];
-        let missingSerials1 = [];
-        let currentLitho = [];
 
-        let sequenceStart = true;
 
-        for (let i = 0; i < expectedSerials.length; i++) {
-            if (lithoCode[i] !== expectedSerials[i]) {
-                ExpexctedLithos.push(expectedSerials[i]);
-                missingSerials1.push(serialNumbers[i]);
-                currentLitho.push(lithoCode[i]);
+
+        let sequenceMissingData = [];
+
+        for (let i = 0; i < lithoCode.length - 1; i++) {
+            if (lithoCode[i + 1] - lithoCode[i] !== 1) {
+                sequenceMissingData.push({
+                    serialNo: serialNumbers[i],
+                    currentLitho: lithoCode[i],
+                    expectedLitho: lithoCode[i + 1]
+                });
             }
         }
 
-        // Report missing data (Serial No, LITHO)
-        if (missingSerials1?.length > 0) {
-            reportContent += `\n=========================  Sequence Data (Serial No, LITHO): ========================= \nSerial No             Current LITHO          Expexcted LITHO \n\n`;
-            for (let i = 0; i < missingSerials1.length; i++) {
-                let serial = missingSerials1[i];
-                let current = currentLitho[i];
-                let expected = ExpexctedLithos[i];
-
-                if (sequenceStart) {
-                    // Print the first item in the sequence
-                    reportContent += `${serial}            \t${current}               \t${expected}\n`;
-                    sequenceStart = false;
-                }
-
-                // Check if the sequence is broken
-                if (i + 1 < missingSerials1.length) {
-                    let nextCurrent = currentLitho[i + 1];
-                    if (parseInt(nextCurrent) !== parseInt(current) + 1) {
-                        // Sequence break detected
-                        reportContent += `...\n`; // Add ellipsis for the current sequence
-                        sequenceStart = true; // Mark the next item as a new sequence
-                    }
-                }
+        // Report Sequence Data (Serial No, LITHO)
+        if (sequenceMissingData.length > 0) {
+            reportContent += `\n=========================  Sequence Data (Serial No, LITHO): ========================= \nSerial No                                        Current LITHO                                           Expected LITHO \n\n`;
+            for (let i = 0; i < sequenceMissingData.length; i++) {
+                reportContent += `${sequenceMissingData[i].serialNo}                                         \t${sequenceMissingData[i].currentLitho} \t                                                ${sequenceMissingData[i].expectedLitho}\n`;
             }
-
-            // Add ellipsis for the last sequence if it continues
-            if (!sequenceStart) {
-                reportContent += `...\n`;
-            }
-
-            reportContent += `\nTotal: ${missingSerials1.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
+        } else {
+            reportContent += `\n=========================  Sequence Data (0) (Serial No, LITHO): ========================= \nSerial No             Current LITHO          Expected LITHO \n\n`;
         }
+
+        reportContent += `\nTotal: ${sequenceMissingData.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
+
+
+
+        // let ExpexctedLithos = [];
+        // let missingSerials1 = [];
+        // let currentLitho = [];
+
+
+        // let sequenceStart = true;
+
+        // for (let i = 0; i < expectedSerials.length; i++) {
+        //     if (lithoCode[i] !== expectedSerials[i]) {
+        //         ExpexctedLithos.push(expectedSerials[i]);
+        //         missingSerials1.push(serialNumbers[i]);
+        //         currentLitho.push(lithoCode[i]);
+        //     }
+        // }
+
+        // if (missingSerials1?.length > 0) {
+        //     reportContent += `\n=========================  Sequence Data (Serial No, LITHO): ========================= \nSerial No             Current LITHO          Expexcted LITHO \n\n`;
+
+        //     let lastCorrectSerial = null;
+        //     let lastCorrectCurrentLitho = null;
+
+        //     for (let i = 0; i < missingSerials1.length; i++) {
+        //         let serial = missingSerials1[i];
+        //         let current = currentLitho[i];
+        //         let expected = ExpexctedLithos[i];
+
+        //         // If sequenceStart is true, we print the first entry
+        //         if (sequenceStart) {
+        //             // Check if the previous item was part of the sequence
+        //             if (lastCorrectSerial !== null && lastCorrectCurrentLitho !== null) {
+        //                 // Print the last correct serial/litho pair before the break
+        //                 reportContent += `${lastCorrectSerial}            \t${lastCorrectCurrentLitho}               \t${ExpexctedLithos[i - 1]}\n`;
+        //             }
+
+        //             reportContent += `${serial}            \t${current}               \t${expected}\n`;
+        //             sequenceStart = false;
+        //         }
+
+        //         // Check if the sequence is broken
+        //         if (i + 1 < missingSerials1.length) {
+        //             let nextCurrent = currentLitho[i + 1];
+        //             if (parseInt(nextCurrent) !== parseInt(current) + 1) {
+        //                 // Sequence break detected, print '...'
+        //                 reportContent += `...\n`;
+        //                 sequenceStart = true; // Reset sequenceStart to true for the next sequence
+        //             }
+        //         }
+
+        //         // Store the last correct serial/litho for the next loop
+        //         lastCorrectSerial = serial;
+        //         lastCorrectCurrentLitho = current;
+        //     }
+
+        //     // Add ellipsis for the last sequence if it continues
+        //     if (!sequenceStart) {
+        //         reportContent += `...\n`;
+        //     }
+
+        //     reportContent += `\nTotal: ${missingSerials1.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
+        // }
+
+
+
+        // let ExpexctedLithos = [];
+        // let missingSerials1 = [];
+        // let currentLitho = [];
+
+        // let sequenceStart = true;
+
+        // for (let i = 0; i < expectedSerials.length; i++) {
+        //     if (lithoCode[i] !== expectedSerials[i]) {
+        //         ExpexctedLithos.push(expectedSerials[i]);
+        //         missingSerials1.push(serialNumbers[i]);
+        //         currentLitho.push(lithoCode[i]);
+        //     }
+        // }
+
+        // if (missingSerials1?.length > 0) {
+        //     reportContent += `\n=========================  Sequence Data (Serial No, LITHO): ========================= \nSerial No             Current LITHO          Expexcted LITHO \n\n`;
+
+        //     let lastCorrectSerial = null;
+        //     let lastCorrectCurrentLitho = null;
+
+        //     for (let i = 0; i < missingSerials1.length; i++) {
+        //         let serial = missingSerials1[i];
+        //         let current = currentLitho[i];
+        //         let expected = ExpexctedLithos[i];
+
+        //         // If sequenceStart is true, we print the first entry
+        //         if (sequenceStart) {
+        //             // Check if the previous item was part of the sequence
+        //             if (lastCorrectSerial !== null && lastCorrectCurrentLitho !== null) {
+        //                 // Print the last correct serial/litho pair before the break
+        //                 reportContent += `${lastCorrectSerial}            \t${lastCorrectCurrentLitho}               \t${ExpexctedLithos[i - 1]}\n`;
+        //             }
+
+        //             reportContent += `${serial}            \t${current}               \t${expected}\n`;
+        //             sequenceStart = false;
+        //         }
+
+        //         // Check if the sequence is broken
+        //         if (i + 1 < missingSerials1.length) {
+        //             let nextCurrent = currentLitho[i + 1];
+        //             if (parseInt(nextCurrent) !== parseInt(current) + 1) {
+        //                 // Sequence break detected, print '...'
+        //                 reportContent += `...\n`;
+        //                 sequenceStart = true; // Reset sequenceStart to true for the next sequence
+        //             }
+        //         }
+
+        //         // Store the last correct serial/litho for the next loop
+        //         lastCorrectSerial = serial;
+        //         lastCorrectCurrentLitho = current;
+        //     }
+
+        //     // Add ellipsis for the last sequence if it continues
+        //     if (!sequenceStart) {
+        //         reportContent += `...\n`;
+        //     }
+
+        //     reportContent += `\nTotal: ${missingSerials1.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
+        // }
 
 
 
