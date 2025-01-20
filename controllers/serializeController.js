@@ -156,46 +156,56 @@ const uploadAndGenerateData = async (req, res) => {
 
             // Check if each line can fit within the current page, if not, create a new page
             lines.forEach(line => {
-                const textWidth = font.widthOfTextAtSize(line, fontSize);
-                const pageWidth = page.getWidth();
-                const maxWidth = pageWidth - margin * 2;
+                let remainingLine = line;
 
-                // If the text is too long, split it into multiple lines (basic word wrapping)
-                while (textWidth > maxWidth) {
-                    const breakPoint = line.lastIndexOf(' ', maxWidth / fontSize);  // Find where to break the line
-                    const firstLine = line.substring(0, breakPoint);
-                    const remainingLine = line.substring(breakPoint + 1);
+                // Continue to break the line into parts if it exceeds the page width
+                while (remainingLine.length > 0) {
+                    const textWidth = font.widthOfTextAtSize(remainingLine, fontSize);
+                    const pageWidth = page.getWidth();
+                    const maxWidth = pageWidth - margin * 2;
 
-                    page.drawText(firstLine, {
-                        x: margin,
-                        y: yPosition,
-                        size: fontSize,
-                        font,
-                        color: rgb(0, 0, 0),
-                    });
-                    yPosition -= lineHeight;
+                    // If the text is too long, split it into smaller parts
+                    if (textWidth > maxWidth) {
+                        // Find a safe break point (breaking on spaces)
+                        const breakPoint = remainingLine.lastIndexOf(' ', remainingLine.length * maxWidth / textWidth);
+                        const firstLine = remainingLine.substring(0, breakPoint);
+                        const remainingText = remainingLine.substring(breakPoint + 1);
 
-                    line = remainingLine; // Use the remaining part of the line
+                        // Draw the first part of the line
+                        page.drawText(firstLine, {
+                            x: margin,
+                            y: yPosition,
+                            size: fontSize,
+                            font,
+                            color: rgb(0, 0, 0),
+                        });
+                        yPosition -= lineHeight;
+
+                        // Update remaining line to continue wrapping
+                        remainingLine = remainingText;
+                    } else {
+                        // Draw the remaining line
+                        page.drawText(remainingLine, {
+                            x: margin,
+                            y: yPosition,
+                            size: fontSize,
+                            font,
+                            color: rgb(0, 0, 0),
+                        });
+                        yPosition -= lineHeight;
+                        remainingLine = "";  // Done processing this line
+                    }
+
+                    // If the text is too long and we reach the bottom of the page, create a new page
+                    if (yPosition - lineHeight < 20) {
+                        page = pdfDoc.addPage([600, 800]); // Add a new page if we reach the bottom
+                        yPosition = 780; // Reset Y position
+                        pageCount += 1; // Increment page count
+                    }
                 }
-
-                // Draw the remaining line
-                if (yPosition - lineHeight < 20) {
-                    page = pdfDoc.addPage([600, 800]); // Add a new page if we reach the bottom
-                    yPosition = 780; // Reset Y position
-                    pageCount += 1; // Increment page count
-                }
-
-                page.drawText(line, {
-                    x: margin,
-                    y: yPosition,
-                    size: fontSize,
-                    font,
-                    color: rgb(0, 0, 0),
-                });
-
-                yPosition -= lineHeight;
             });
         };
+
 
         const now = moment().format('YYYY-MM-DD HH:mm:ss');
         let reportContent = `                                                              File Name: ${minValue + "-" + maxValue}\n\nDate: ${now}                  User: ${user.email}\nTotal Number of Data: 5000\n\n`;
@@ -223,7 +233,6 @@ const uploadAndGenerateData = async (req, res) => {
             }
         }
 
-
         // Report missing data (Serial No, LITHO)
         if (missingSerials.length > 0) {
             reportContent += `\n=========================  Missing Data (Serial No, LITHO): ========================= \nSerial No    LITHO \n\n`;
@@ -237,18 +246,18 @@ const uploadAndGenerateData = async (req, res) => {
 
         reportContent += `\nTotal: ${missingSerials.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
 
-
-
-
         let sequenceMissingData = [];
 
-        for (let i = 0; i < lithoCode.length - 1; i++) {
-            if (lithoCode[i + 1] - lithoCode[i] !== 1) {
-                sequenceMissingData.push({
-                    serialNo: serialNumbers[i],
-                    currentLitho: lithoCode[i],
-                    expectedLitho: lithoCode[i + 1]
-                });
+        // Ensure lithoCode and serialNumbers are defined and non-empty
+        if (lithoCode && lithoCode.length > 0 && serialNumbers && serialNumbers.length > 0) {
+            for (let i = 0; i < lithoCode.length - 1; i++) {
+                if (lithoCode[i + 1] - lithoCode[i] !== 1) {
+                    sequenceMissingData.push({
+                        serialNo: serialNumbers[i],
+                        currentLitho: lithoCode[i],
+                        expectedLitho: lithoCode[i + 1]
+                    });
+                }
             }
         }
 
@@ -263,132 +272,6 @@ const uploadAndGenerateData = async (req, res) => {
         }
 
         reportContent += `\nTotal: ${sequenceMissingData.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
-
-
-
-        // let ExpexctedLithos = [];
-        // let missingSerials1 = [];
-        // let currentLitho = [];
-
-
-        // let sequenceStart = true;
-
-        // for (let i = 0; i < expectedSerials.length; i++) {
-        //     if (lithoCode[i] !== expectedSerials[i]) {
-        //         ExpexctedLithos.push(expectedSerials[i]);
-        //         missingSerials1.push(serialNumbers[i]);
-        //         currentLitho.push(lithoCode[i]);
-        //     }
-        // }
-
-        // if (missingSerials1?.length > 0) {
-        //     reportContent += `\n=========================  Sequence Data (Serial No, LITHO): ========================= \nSerial No             Current LITHO          Expexcted LITHO \n\n`;
-
-        //     let lastCorrectSerial = null;
-        //     let lastCorrectCurrentLitho = null;
-
-        //     for (let i = 0; i < missingSerials1.length; i++) {
-        //         let serial = missingSerials1[i];
-        //         let current = currentLitho[i];
-        //         let expected = ExpexctedLithos[i];
-
-        //         // If sequenceStart is true, we print the first entry
-        //         if (sequenceStart) {
-        //             // Check if the previous item was part of the sequence
-        //             if (lastCorrectSerial !== null && lastCorrectCurrentLitho !== null) {
-        //                 // Print the last correct serial/litho pair before the break
-        //                 reportContent += `${lastCorrectSerial}            \t${lastCorrectCurrentLitho}               \t${ExpexctedLithos[i - 1]}\n`;
-        //             }
-
-        //             reportContent += `${serial}            \t${current}               \t${expected}\n`;
-        //             sequenceStart = false;
-        //         }
-
-        //         // Check if the sequence is broken
-        //         if (i + 1 < missingSerials1.length) {
-        //             let nextCurrent = currentLitho[i + 1];
-        //             if (parseInt(nextCurrent) !== parseInt(current) + 1) {
-        //                 // Sequence break detected, print '...'
-        //                 reportContent += `...\n`;
-        //                 sequenceStart = true; // Reset sequenceStart to true for the next sequence
-        //             }
-        //         }
-
-        //         // Store the last correct serial/litho for the next loop
-        //         lastCorrectSerial = serial;
-        //         lastCorrectCurrentLitho = current;
-        //     }
-
-        //     // Add ellipsis for the last sequence if it continues
-        //     if (!sequenceStart) {
-        //         reportContent += `...\n`;
-        //     }
-
-        //     reportContent += `\nTotal: ${missingSerials1.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
-        // }
-
-
-
-        // let ExpexctedLithos = [];
-        // let missingSerials1 = [];
-        // let currentLitho = [];
-
-        // let sequenceStart = true;
-
-        // for (let i = 0; i < expectedSerials.length; i++) {
-        //     if (lithoCode[i] !== expectedSerials[i]) {
-        //         ExpexctedLithos.push(expectedSerials[i]);
-        //         missingSerials1.push(serialNumbers[i]);
-        //         currentLitho.push(lithoCode[i]);
-        //     }
-        // }
-
-        // if (missingSerials1?.length > 0) {
-        //     reportContent += `\n=========================  Sequence Data (Serial No, LITHO): ========================= \nSerial No             Current LITHO          Expexcted LITHO \n\n`;
-
-        //     let lastCorrectSerial = null;
-        //     let lastCorrectCurrentLitho = null;
-
-        //     for (let i = 0; i < missingSerials1.length; i++) {
-        //         let serial = missingSerials1[i];
-        //         let current = currentLitho[i];
-        //         let expected = ExpexctedLithos[i];
-
-        //         // If sequenceStart is true, we print the first entry
-        //         if (sequenceStart) {
-        //             // Check if the previous item was part of the sequence
-        //             if (lastCorrectSerial !== null && lastCorrectCurrentLitho !== null) {
-        //                 // Print the last correct serial/litho pair before the break
-        //                 reportContent += `${lastCorrectSerial}            \t${lastCorrectCurrentLitho}               \t${ExpexctedLithos[i - 1]}\n`;
-        //             }
-
-        //             reportContent += `${serial}            \t${current}               \t${expected}\n`;
-        //             sequenceStart = false;
-        //         }
-
-        //         // Check if the sequence is broken
-        //         if (i + 1 < missingSerials1.length) {
-        //             let nextCurrent = currentLitho[i + 1];
-        //             if (parseInt(nextCurrent) !== parseInt(current) + 1) {
-        //                 // Sequence break detected, print '...'
-        //                 reportContent += `...\n`;
-        //                 sequenceStart = true; // Reset sequenceStart to true for the next sequence
-        //             }
-        //         }
-
-        //         // Store the last correct serial/litho for the next loop
-        //         lastCorrectSerial = serial;
-        //         lastCorrectCurrentLitho = current;
-        //     }
-
-        //     // Add ellipsis for the last sequence if it continues
-        //     if (!sequenceStart) {
-        //         reportContent += `...\n`;
-        //     }
-
-        //     reportContent += `\nTotal: ${missingSerials1.length}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
-        // }
-
 
 
 
@@ -416,6 +299,7 @@ const uploadAndGenerateData = async (req, res) => {
             reportContent += `\n=========================  Duplicate Litho Code: NONE (0) =========================\n\n`;
         }
 
+
         // Not in Range Check
         const outOfRangeData = jsonData.filter(row => {
             const lithoValue = Number(row["LITHO"]);
@@ -437,6 +321,7 @@ const uploadAndGenerateData = async (req, res) => {
 
         let totalRows = 0;
 
+
         jsonData.forEach(row => {
             const serialNo = row["Serial No."];
             const litho = row["LITHO"];
@@ -457,8 +342,12 @@ const uploadAndGenerateData = async (req, res) => {
 
         reportContent += `\nTotal: ${totalRows}          Manual Check: [   ]          Manual Verification: [   ]\n\n`;
 
-        // Add the report content to the PDF document
-        addText(reportContent);
+
+        // // Add the report content to the PDF document
+        if (reportContent) {
+            addText(reportContent);
+        }
+
 
         // Add page numbering at the bottom of the page
         const totalPages1 = pdfDoc.getPages().length;
@@ -472,9 +361,12 @@ const uploadAndGenerateData = async (req, res) => {
             });
         });
 
+
+
         // Save the PDF to a file
         const pdfBytes = await pdfDoc.save();
         fs.writeFileSync(reportPdfFile, pdfBytes);
+
 
         // Save folder information to the database
         await serializeSchema.create({ userId, folderPath: fileNameWithoutExt });
